@@ -503,10 +503,7 @@ func set(jstr, path, raw string,
 			}
 			if inplace && sz <= len(jstr) {
 				if !stringify || !mustMarshalString(raw) {
-					jsonh := *(*reflect.StringHeader)(unsafe.Pointer(&jstr))
-					jsonbh := reflect.SliceHeader{
-						Data: jsonh.Data, Len: jsonh.Len, Cap: jsonh.Len}
-					jbytes := *(*[]byte)(unsafe.Pointer(&jsonbh))
+					jbytes := unsafeStringBytes(jstr)
 					if stringify {
 						jbytes[res.Index] = '"'
 						copy(jbytes[res.Index+1:], []byte(raw))
@@ -571,9 +568,7 @@ func SetOptions(json, path string, value interface{},
 			opts.ReplaceInPlace = false
 		}
 	}
-	jsonh := *(*reflect.StringHeader)(unsafe.Pointer(&json))
-	jsonbh := reflect.SliceHeader{Data: jsonh.Data, Len: jsonh.Len}
-	jsonb := *(*[]byte)(unsafe.Pointer(&jsonbh))
+	jsonb := unsafeStringBytes(json)
 	res, err := SetBytesOptions(jsonb, path, value, opts)
 	return string(res), err
 }
@@ -666,4 +661,13 @@ func SetRawBytesOptions(json []byte, path string, value []byte,
 		return json, nil
 	}
 	return res, err
+}
+
+func unsafeStringBytes(s string) []byte {
+	var b []byte
+	bHdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	bHdr.Data = uintptr(unsafe.Pointer((*reflect.StringHeader)(unsafe.Pointer(&s)).Data))
+	bHdr.Len = len(s)
+	bHdr.Cap = len(s)
+	return b
 }
